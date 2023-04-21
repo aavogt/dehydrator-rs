@@ -1,0 +1,6 @@
+[submodule "vendor/SHT31-rs"]
+	path = vendor/SHT31-rs
+	url = https://github.com/FloppyDisck/SHT31-rs.git
+[submodule "vendor/embedded-io"]
+	path = vendor/embedded-io
+	url = https://github.com/embassy-rs/embedded-io.git

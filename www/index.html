@@ -1,0 +1,70 @@
+<head>
+<style>
+ .column {
+  float: left;
+}
+
+/* Clear floats after the columns */
+.row:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+</style>
+</head>
+<body>
+<h1>Dehydrator Automations</h1>
+<div class="row">
+        <div class="column" style="width:70%;height:5in">
+                <canvas id="TtChart"></canvas>
+                <canvas id="outputChart"></canvas>
+        </div>
+        <div class="column" style="width:30%">
+<form id="inputForm" onsubmit="return submitData()">
+<table>
+<tr>
+        <td><label for="T_divs" id="T_divs_label">temperature levels</label> </td>
+        <td><input type="range" min="5" max="30" value="10" class="slider" id="T_divs"></td>
+</tr>
+<tr>
+        <td><label for="t_divs" id="t_divs_label">time levels</label> </td>
+        <td><input type="range" min="2" max="15" value="10" class="slider" id="t_divs"></td>
+</tr>
+<tr>
+        <td><label for="t_max">maximum time</label> </td>
+        <td><input type="range" min="1" max="20" value="8" class="slider" id="t_max"></td>
+</tr>
+<tr>
+        <td><label for="T_min">minimum temperature setpoint (°C)</label></td>
+        <td><input type="range" min="35" max="70" value="35" class="slider" id="T_min"></td>
+        </tr>
+<tr>
+        <td><label for="T_max">maximum temperature setpoint (°C)</label></td>
+        <td><input type="range" min="40" max="75" value="75" class="slider" id="T_max"></td>
+</tr>
+<tr>
+        <td><label for="w_cut">humidity cutoff (g/m3)</label></td>
+        <td><input type="text" pattern="\d*.\d*" value="13.5" id="w_cut"></td>
+</tr>
+<tr>
+        <td><label for="n_wavelets">number of wavelet parameters</label></td>
+        <td><input type="text" pattern="\d*" value="10" id="n_wavelets" maxlength=4 size="3"></td>
+</tr>
+<tr>
+        <td><label for="measurement_period">measurement period (ms)</label></td>
+        <td><input type="text" pattern="\d*" value="1000" id="measurement_period" maxlength=5 size="4">
+</td>
+<tr>
+        <td><button type="submit">submit configuration</button></td>
+</tr>
+<tr>
+        <td><a href="/measurement.csv">download measurement.csv</a></td>
+</tr>
+<tr>
+        <td><a href="/shutdown">shutdown</a></td>
+</tr>
+</table>
+</form>
+        </div>
+<script type="module" src="./app.js"></script>
+</body>        
