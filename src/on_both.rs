@@ -1,10 +1,12 @@
 use sht31::error::Result as R;
 
+/// `OnBoth(x,y)(f)` is `{ Ok((f(&mut x)?, f(&mut y)?)) }`. That is, call `f` on both `x` and `y`, and return either successful results in a tuple or the first error. Specialization of `Control.Lens.each f (x,y)`.
+///
+/// I tried returning a closure, but it's not polymorphic <https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=721b56bc09f8b9d72201f27df85ccf75>
+/// this adapts xiretza from #rust:matrix.org's solution <https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=83608f93fd1a96fbded955618246ba02>
+/// TODO parametrize on R
 pub struct OnBoth<T> (pub T,pub T);
 
-// I tried returning a closure, but it's not polymorphic https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=721b56bc09f8b9d72201f27df85ccf75
-// this adapts xiretza from #rust:matrix.org's solution <https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=83608f93fd1a96fbded955618246ba02>
-// TODO parametrize on R
 impl<T, F, A> FnOnce<(F,)> for OnBoth<T>
 where
     F: FnMut(&mut T) -> R<A>,
