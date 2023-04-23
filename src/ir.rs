@@ -1,24 +1,24 @@
-use std::sync::{Mutex, Arc};
+use std::{sync::{Mutex, Arc}, ops::DerefMut};
 
-use esp_idf_hal::{gpio::AnyOutputPin, rmt::{CHANNEL0, FixedLengthSignal, TxRmtDriver, RmtTransmitConfig, Pulse, PinState, PulseTicks}};
+use esp_idf_hal::{gpio::{AnyOutputPin, OutputPin}, rmt::{CHANNEL0, FixedLengthSignal, TxRmtDriver, RmtTransmitConfig, Pulse, PinState, PulseTicks, RmtChannel}, peripheral::Peripheral};
 
-pub struct IrShutdown (Arc<Mutex<IrShutdownState>>);
+pub struct IrShutdown<'d> (Arc<Mutex<IrShutdownState>>);
 
 /// boiletplate to be able to use `ir_shutdown();`
-impl FnOnce<()> for IrShutdown {
+impl<'d> FnOnce<()> for IrShutdown<'d> {
     type Output = ();
     extern "rust-call" fn call_once(self, _args: ()) {
         self.0.lock().unwrap().send_signal();
     }
 }
 
-impl Fn<()> for IrShutdown {
+impl<'d> Fn<()> for IrShutdown<'d> {
     extern "rust-call" fn call(&self, _args: ()) {
         self.0.lock().unwrap().send_signal();
     }
 }
 
-impl FnMut<()> for IrShutdown {
+impl<'d> FnMut<()> for IrShutdown<'d> {
     extern "rust-call" fn call_mut(&mut self, _args: ()) {
         self.0.lock().unwrap().send_signal();
     }
@@ -37,11 +37,10 @@ impl IrShutdownState {
 
 
 // or follow the NEC or another protocol?
-impl IrShutdown {
-    /// TODO CHANNEL0 shouldn't be hardcoded. It could either be a parameter,
-    /// or I need an AnyChannel like AnyOutputPin
-    pub fn new<'d>(ir_pin : AnyOutputPin, channel : CHANNEL0) 
-        -> anyhow::Result<IrShutdown>
+impl<'d> IrShutdown<'d> {
+    pub fn new(ir_pin : impl Peripheral<P = impl OutputPin> + 'd,
+               channel : impl Peripheral<P = impl RmtChannel> + 'd ) 
+        -> anyhow::Result<IrShutdown<'d>>
     {
             let config = RmtTransmitConfig::new().clock_divider(1);
             let tx = TxRmtDriver::new(channel, ir_pin, &config)?;
