@@ -135,12 +135,15 @@ pub fn calibrate<'d>(step : HalfStep<'d>,
 
 pub struct HalfStep<'d> {
     pps : [PinDriver<'d, AnyOutputPin, gpio::Output>; 4],
-    pulse : [i32; 8],
+    /// For each half step i, the lowest 4 bits of pulse[i] specify
+    /// the level of the 4 coils energized by pps.
+    /// Copied fromt the table at <https://vanhunteradams.com/Pico/Steppers/Lorenz.html>
+    pulse : [u8; 8],
 }
 
 /// The 28byj-48 is controlled with 4 gpio pins. The returned lambda
 /// executes a single half-step in the direction given by the bool. 512 calls should be a full rotation
-/// according to https://projecthub.arduino.cc/debanshudas23/1620bd1e-3463-4fb0-9c1c-53d03bb1a433
+/// according to <https://projecthub.arduino.cc/debanshudas23/1620bd1e-3463-4fb0-9c1c-53d03bb1a433>
 /// so a full rotation would be 512*20ms = 10.24s. This is fast enough since the dial is only 1/3
 /// of a rotation.
 impl<'d> HalfStep<'d> {
@@ -151,7 +154,6 @@ impl<'d> HalfStep<'d> {
               PinDriver::output(b.downgrade_output())?,
               PinDriver::output(c.downgrade_output())?,
               PinDriver::output(d.downgrade_output())? ];
-        // https://vanhunteradams.com/Pico/Steppers/Lorenz.html
         let pulse = [ 0x9,0x8,0xc,0x4,0x6,0x2,0x3,0x1 ];
         Ok(HalfStep { pps, pulse })
     }
@@ -166,8 +168,14 @@ impl<'d> HalfStep<'d> {
                 Off => (),
             };
             i = i.rem_euclid(8);
-            let p : i32 = self.pulse[i as usize];
+            let p : u8 = self.pulse[i as usize];
             for j in 0..4 {
+                // unless the previous Dir::Off, then only one of the
+                // 4 calls the level to a different level. That is, only
+                // one bit differs between successive elements of pulse.
+                // Removing the redundancy is unlikely to matter because
+                // the mechanical and thermal time constants are much
+                // larger than the time wasted here.
                 self.pps[j].set_level(match (&dir, (p>>j)&1) {
                     (Off, _) | (_, 0) if true => gpio::Level::Low,
                     _ => gpio::Level::High,
