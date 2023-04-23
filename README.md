@@ -22,9 +22,10 @@ To this end I have selected the following components:
    - [x] compress, serialize and store in nvs
    - [x] streamingly load, decompress, deserialize, turn into csv
    - [ ] test?
- - [ ] stepper: 4 + 3 pins
+ - [ ] stepper: 4 out + 3 in pins
    - [x] half step / stop
    - [x] hall sensor logic
+     - [ ] pick supply voltage (3.3 vs 5) and resistors to avoid needing ADC and damage
    - [x] `set_fraction`
    - [x] apply `set_fraction` to `config.step_fracs` at the right times in a separate thread
    - [ ] mechanical design
@@ -35,10 +36,11 @@ To this end I have selected the following components:
  - [ ] weigh scale: 2 pins
    - [x] `hx711_spi`
    - [ ] calibration
-   - [ ] mounting/board supposedly needed to ensure it's accurate. Not sure about balancing? The front half of the dehydrator could be supported. This measurement of vibration from the fan. And then there are no problems with respect to keeping the weight over the centre / having the thing tip over unintentionally
+   - [ ] mounting/board supposedly needed to ensure it's accurate. Not sure about balancing? The front half of the dehydrator could be supported. This will reduce the effect of vibration from the fan on the measurement. And then there are no problems with respect to keeping the weight over the centre / having the thing tip over unintentionally
  - [ ] ACS712 current meter: 1 pin
    - [x] raw adc
    - [ ] calibration?Voltage = (RawValue / 1024.0) * 5000; // Gets you mV int mVperAmp = 100; // use 100 for 20A Module and 66 for 30A Module
+   - [ ] note calibration https://github.com/esp-rs/esp-hal/issues/326
    - [ ] where to put it? It could go inside the dehydrator where the plug goes into. But then it's harder to calibrate. There is probably not enough room inside the HENGMING HM-01K3
  - [x] IR shutoff: 1 pin
    - [x] call from http
@@ -50,3 +52,4 @@ To this end I have selected the following components:
    - [ ] plot historical csv with wavelet smoothing applied and overlay the cutoff?
    - [ ] current conditions
    - [ ] chart.js from a cdn or perhaps it will be small enough to be served from the esp32c3. Another option is to make it an android app.
+   - [ ] current data. The js would be making requests? More natural would be for the js to subscribe and for the main.rs main loop to push the data. This is not http however. MQTT needs a server in the middle. Or the http request is made for data and this stays open?

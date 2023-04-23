@@ -55,6 +55,7 @@ fn mk_i2c_bus<'d>(i2c : impl Peripheral<P=impl I2c> + 'd,
     Ok(shared_bus::BusManagerSimple::new(i2c_driver))
 }
 
+/// create two SHT31 drivers on the same bus with different addresses
 fn mk_shts<T : BusMutex>(i2c_bus : &BusManager<T>) -> OnBoth<SHT31<Periodic, I2cProxy<'_, T>>> where
     <T as BusMutex>::Bus : WriteRead + Write {
     let mut sht1 = SHT31::new(i2c_bus.acquire_i2c())
@@ -70,27 +71,35 @@ fn mk_shts<T : BusMutex>(i2c_bus : &BusManager<T>) -> OnBoth<SHT31<Periodic, I2c
 }
 
 
-
-/// TODO units for time
-///
-/// delays are u32 <file:///home/aavogt/wip/dehydrator/target/riscv32imc-esp-espidf/doc/esp_idf_hal/delay/struct.FreeRtos.html>
-/// do I use libc::time?
-/// use serde and save this as a blob to flash?
 #[derive(Serialize, Deserialize)]
 struct Config {
-    step_times: [i64; 20], /// starting at zero
-    step_fracs: [f32; 20], /// piecewise constant
+    /// step_times and step_fracs define a piecewise constant function
+    /// for the stepper motor position
+    ///
+    /// Step times is the seconds (since the config was last considered "modified")
+    /// at which stepper should move to the new position. The first element should be 0.
+    step_times: [i64; 20],
+
+    /// position of the stepper motor as a fraction (0,1) of the full range
+    step_fracs: [f32; 20],
+
+    /// the time to wait between measurements in milliseconds
     measurement_period_ms : u32,
+
+    /// smoothing parameter
     n_wavelets: u16,
+
+    /// humidity threshold for dehydrator to be shut down
     w_cut: f32,
+
+    /// system time when the config was last modified (by http). It is subtracted from
+    /// libc::time to get step_times
     last_modified: i64,
 }
 
 
 
-// orientation of the sensor is unknown. All I know is that
-// output will go from 0 to 1 or 1 to 0. It is also possible that
-// the sensor starts out at the endpoint.
+/// the closure returns true if the hall sensor GPIO is high
 fn mk_hall<'d> (pin : impl Peripheral<P=impl InputPin > + 'd) -> anyhow::Result<Box<impl Fn() -> bool + 'd>> {
     let hall = PinDriver::input(pin)?;
     // set pullup / down?
@@ -190,6 +199,10 @@ fn main() -> anyhow::Result<()> {
         last_modified: unsafe { esp_idf_sys::time(null_mut()) },
     }));
 
+    // stepper thread sets this, the http thread reads it to decide
+    // whether to reset last_modified
+    let step_times_past_index = Arc::new(Mutex::new(0usize));
+
     // flash storage for compressed sensor data
     let measured_partition = EspNvsPartition::<NvsCustom>::take("measured")?;
     let comp = Arc::new(Mutex::new(EspNvs::new(measured_partition, "comp",true)?));
@@ -232,7 +245,14 @@ fn main() -> anyhow::Result<()> {
     http.fn_handler("/config", Method::Post, move |rq| {
         let mut config = config1.lock().unwrap();
         let mut read_conf : Config = serde_json::from_reader(ReadWrapper(rq))?;
-        unsafe { esp_idf_sys::time(&mut read_conf.last_modified) };
+
+        let i_min = step_times_past_index.lock().unwrap(); // +1?
+        if config.step_times[..i_min] == read_conf.step_times[..i_min] &&
+            config.step_fracs[..imin] == read_conf.step_times[..i_min] {
+            i_min = 0;
+            unsafe { esp_idf_sys::time(&mut read_conf.last_modified) };
+        };
+
         *config = read_conf;
         Ok(())
     })?;
@@ -285,8 +305,6 @@ fn main() -> anyhow::Result<()> {
     // specified by step_fracs and step_times
     let config1 = config.clone();
     thread::spawn(move || {
-        let mut i_min = 0;
-        let mut last_modified = config1.lock().unwrap().last_modified;
         loop {
 
             FreeRtos::delay_ms(1000); // configurable?
@@ -294,17 +312,17 @@ fn main() -> anyhow::Result<()> {
             let mut t = unsafe { esp_idf_sys::time(null_mut()) };
 
             let config = config1.lock().unwrap();
-            if config.last_modified != last_modified {
-                i_min = 0;
-                last_modified = config.last_modified;
+            let i_min = step_times_past_index.lock().unwrap();
+            if i_min == 0 {
                 stepper.lock().unwrap().set_fraction(config.step_fracs[0]).unwrap();
+                i_min += 1;
             }
             t -= last_modified;
             for i in i_min..config.step_times.len() {
                 if config.step_times[i] > t {
                     stepper.lock().unwrap().set_fraction(config.step_fracs[i]).unwrap();
                     // remove second unwrap somehow?
-                    i_min = i+1;
+                    i_min = (i+1).min(config.step_times.len());
                     break;
                 }
             }
