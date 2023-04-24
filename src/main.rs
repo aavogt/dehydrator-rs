@@ -344,6 +344,7 @@ fn main() -> anyhow::Result<()> {
     loop {
         j.next();
         
+        meas.cutoffs = 0;
         // get N1 measurements
         for i in 0..meas::N1 {
             let (inside,outside) = shts(SHT31::read)?;
@@ -360,6 +361,9 @@ fn main() -> anyhow::Result<()> {
             // confirm conversion
             meas.amps[i] = amps as f32;
             meas.grams[i] = g as f32;
+
+            let w = abs_humidity_g_per_m3(inside.temperature, inside.humidity);
+            if w < config.lock().unwrap().w_cut { meas.cutoffs += 1; }
         }
         unsafe { esp_idf_sys::time(&mut meas.time) };
         // now meas is full
@@ -371,4 +375,24 @@ fn main() -> anyhow::Result<()> {
         ciborium::ser::into_writer(&meas::compress(meas), writer)?;
     }
 
+}
+
+/// absolute humidity in g/m3 according to
+/// <https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Mask=4&Type=ANTOINE&Plot=on#ANTOINE>
+/// temp should be between -17 and 100°C, rh_percent is 0 to 100
+fn abs_humidity_g_per_m3(temp_celsius : f32, rh_percent : f32) -> f32 {
+    // Stull 1947 antione equation for water vapor pressure from NIST
+    const A : f32 = 4.6543;
+    const B : f32 = 1435.264;
+    const C : f32 = -64.848;
+    const MW : f32 = 18.01528; // g/mol
+    const R : f32 = 8.31446261815324; // J/(mol K)
+    const PA_PER_BAR : f32 = 1e5;
+
+    let kelvin = temp_celsius + 273.15;
+    let bar_pw = 10f32.powf(A - B / (kelvin + C)) * rh_percent / 100.0;
+    let p = PA_PER_BAR * bar_pw;
+
+    // ideal gas law MW n/V = MW p/R/T
+    MW * p / kelvin / R
 }
