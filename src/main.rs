@@ -232,7 +232,7 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     })?;
 
-    http.fn_handler("/shutdown", Method::Get, move |_rq| {
+    http.fn_handler("/shutdown", Method::Post, move |_rq| {
         ir_shutdown();
         Ok(())
     })?;
