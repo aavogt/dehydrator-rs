@@ -74,7 +74,7 @@ fn mk_shts<T : BusMutex>(i2c_bus : &BusManager<T>) -> OnBoth<SHT31<Periodic, I2c
 #[derive(Serialize, Deserialize)]
 struct Config {
     /// step_times and step_fracs define a piecewise constant function
-    /// for the stepper motor position
+    /// for the stepper motor position which in turn determines the temperature profile
     ///
     /// Step times is the seconds (since the config was last considered "modified")
     /// at which stepper should move to the new position. The first element should be 0.
@@ -199,9 +199,15 @@ fn main() -> anyhow::Result<()> {
         last_modified: unsafe { esp_idf_sys::time(null_mut()) },
     }));
 
-    // stepper thread sets this, the http thread reads it to decide
-    // whether to reset last_modified
-    let step_times_past_index = Arc::new(Mutex::new(0usize));
+    // step_index_completed is for getting how far the stepper has moved
+    // into the http thread. And it is for the http thread to reset the stepper
+    // when the user requests it directly or indirectly (by changing the
+    // temperature profile).
+    // Assuming the stepper thread has run, this is true:
+    // > let i = step_index_completed.lock().unwrap();
+    // > time >= config.step_times[i]
+    // > stepper.set_fraction(config.lock().unwrap().step_fracs[i]) // stepper doesn't move
+    let step_index_completed = Arc::new(Mutex::new(0usize));
 
     // flash storage for compressed sensor data
     let measured_partition = EspNvsPartition::<NvsCustom>::take("measured")?;
@@ -231,6 +237,12 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     })?;
 
+    let i_min = step_index_completed.clone();
+    http.fn_handler("/restart", Method::Post, move |_rq| {
+        *i_min.lock().unwrap() = 0;
+        Ok(())
+    })?;
+
     // get config
     let config1 = config.clone();
     http.fn_handler("/config", Method::Get, move |rq| {
@@ -241,15 +253,16 @@ fn main() -> anyhow::Result<()> {
     })?;
 
     // set config
+    let i_min = step_index_completed.clone();
     let config1 = config.clone();
     http.fn_handler("/config", Method::Post, move |rq| {
         let mut config = config1.lock().unwrap();
         let mut read_conf : Config = serde_json::from_reader(ReadWrapper(rq))?;
 
-        let i_min = step_times_past_index.lock().unwrap(); // +1?
-        if config.step_times[..i_min] == read_conf.step_times[..i_min] &&
-            config.step_fracs[..imin] == read_conf.step_times[..i_min] {
-            i_min = 0;
+        let mut i_min = i_min.lock().unwrap();
+        if config.step_times[..*i_min] == read_conf.step_times[..*i_min] &&
+            config.step_fracs[..*i_min] == read_conf.step_fracs[..*i_min] {
+            *i_min = 0;
             unsafe { esp_idf_sys::time(&mut read_conf.last_modified) };
         };
 
@@ -312,17 +325,17 @@ fn main() -> anyhow::Result<()> {
             let mut t = unsafe { esp_idf_sys::time(null_mut()) };
 
             let config = config1.lock().unwrap();
-            let i_min = step_times_past_index.lock().unwrap();
-            if i_min == 0 {
+            let mut i_min = step_index_completed.lock().unwrap();
+            if *i_min == 0 {
                 stepper.lock().unwrap().set_fraction(config.step_fracs[0]).unwrap();
-                i_min += 1;
+                *i_min += 1;
             }
-            t -= last_modified;
-            for i in i_min..config.step_times.len() {
+            t -= config.last_modified;
+            for i in *i_min..config.step_times.len() {
                 if config.step_times[i] > t {
                     stepper.lock().unwrap().set_fraction(config.step_fracs[i]).unwrap();
                     // remove second unwrap somehow?
-                    i_min = (i+1).min(config.step_times.len());
+                    *i_min = (i+1).min(config.step_times.len());
                     break;
                 }
             }

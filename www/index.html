@@ -63,6 +63,16 @@
 <tr>
         <td><a href="/shutdown">shutdown</a></td>
 </tr>
+<tr>
+        <td><button type="button" onclick="post_url(`restart`)">restart</button></td>
+        <script>
+                function post_url(url) {
+                        var request = new XMLHttpRequest();
+                        request.open("POST", window.location.href + url, false);
+                        request.send();
+                }
+        </script>
+</tr>
 </table>
 </form>
         </div>
