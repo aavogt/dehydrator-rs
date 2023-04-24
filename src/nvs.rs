@@ -1,6 +1,6 @@
-use std::{ptr::null_mut, ffi::CString, mem::transmute, iter::Step};
+use std::{ptr::null_mut, ffi::CString, mem::transmute, iter::Step, error::Error, fmt::{Display, Formatter}};
 
-use esp_idf_svc::nvs::{EspNvs, NvsCustom};
+use esp_idf_svc::nvs::{EspNvs, NvsCustom, NvsDefault};
 use esp_idf_sys::{nvs_entry_find, nvs_type_t_NVS_TYPE_BLOB, nvs_entry_info_t, nvs_entry_info, nvs_entry_next, EspError};
 
 #[derive(Clone,Copy,PartialOrd,PartialEq)]
@@ -137,5 +137,51 @@ impl <'a> ciborium_io::Read for ReadWrite<'a> {
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
         let _buf = self.0.get_blob(self.1.to_str(), buf)?.expect("empty blob");
         Ok(())
+    }
+}
+
+/// reader/writer just like ReadWrite, except the key is a string slice
+/// and it is stored in the NvsDefault partition
+pub struct ReadWriteStr<'a> (pub &'a mut EspNvs<NvsDefault>, pub &'a str);
+
+impl <'a> ciborium_io::Write for ReadWriteStr<'a> {
+    type Error = EspError;
+    fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        self.0.set_blob(self.1, buf)?;
+        Ok(())
+    }
+
+    /// noop because set_blob calls nvs_commit
+    fn flush(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+impl <'a> ciborium_io::Read for ReadWriteStr<'a> {
+    type Error = anyhow::Error;
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
+        let _buf = self.0.get_blob(self.1, buf)?.ok_or(anyhow::Error::new(EmptyBlob))?;
+        Ok(())
+    }
+}
+
+/// copy pasted except for reference
+impl <'a> ciborium_io::Read for &ReadWriteStr<'a> {
+    type Error = anyhow::Error;
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
+        let _buf = self.0.get_blob(self.1, buf)?.ok_or(anyhow::Error::new(EmptyBlob))?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct EmptyBlob;
+impl Display for EmptyBlob {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "empty blob")
+    }
+}
+impl Error for EmptyBlob {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        None
     }
 }

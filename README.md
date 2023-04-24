@@ -21,6 +21,7 @@ To this end I have selected the following components:
  - [x] nvs
    - [x] compress, serialize and store in nvs
    - [x] streamingly load, decompress, deserialize, turn into csv
+   - [x] calibrations
    - [ ] test?
  - [ ] stepper: 4 out + 3 in pins
    - [x] half step / stop
@@ -35,11 +36,10 @@ To this end I have selected the following components:
    - [ ] possibly calibrate to measured temperatures? IE. we set the dial to 65 but get 63 so then a slow PI controller can get it up to 65
  - [ ] weigh scale: 2 pins
    - [x] `hx711_spi`
-   - [ ] calibration
+   - [x] calibration, tare store in nvs
    - [ ] mounting/board supposedly needed to ensure it's accurate. Not sure about balancing? The front half of the dehydrator could be supported. This will reduce the effect of vibration from the fan on the measurement. And then there are no problems with respect to keeping the weight over the centre / having the thing tip over unintentionally
  - [ ] ACS712 current meter: 1 pin
    - [x] raw adc
-   - [ ] calibration?Voltage = (RawValue / 1024.0) * 5000; // Gets you mV int mVperAmp = 100; // use 100 for 20A Module and 66 for 30A Module
    - [ ] note calibration https://github.com/esp-rs/esp-hal/issues/326
    - [ ] where to put it? It could go inside the dehydrator where the plug goes into. But then it's harder to calibrate. There is probably not enough room inside the HENGMING HM-01K3
  - [x] IR shutoff: 1 pin
@@ -49,6 +49,7 @@ To this end I have selected the following components:
  - [x] serve www/{app.js,index.html} for local development serve it with `pnpm dev --open chromium-browser`
    - [x] submit/receive/manipulate T(t) profile, `w_cutoff`, `n_wavelets`
    - [x] request historical csv
+   - [ ] request calibrations
    - [ ] plot historical csv with wavelet smoothing applied and overlay the cutoff?
    - [ ] current conditions
    - [ ] chart.js from a cdn or perhaps it will be small enough to be served from the esp32c3. Another option is to make it an android app.

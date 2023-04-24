@@ -1,22 +1,20 @@
 use embedded_svc::wifi::Wifi;
 use std::time::Duration;
 
-use esp_idf_svc::{eventloop::{EspEventLoop, System}, wifi::EspWifi};
+use esp_idf_svc::{eventloop::{EspEventLoop, System}, wifi::EspWifi, nvs::{EspNvsPartition, NvsDefault}};
 use anyhow::{anyhow, bail};
 use log::*;
 use embedded_svc::ipv4::Ipv4Addr;
 use embedded_svc::wifi::{ClientConfiguration, Configuration };
 use esp_idf_svc::netif::{EspNetif, EspNetifWait};
-use esp_idf_svc::nvs::EspDefaultNvsPartition;
 use esp_idf_svc::wifi::WifiWait;
 
 
 // https://github.com/ivmarkov/rust-esp32-std-demo/blob/77150c2bfbbb417c93fee51556bea0aa2ea91e36/src/main.rs#L1379
-pub fn connect<'a>(modem : esp_idf_hal::modem::Modem, sysloop : &'a EspEventLoop<System>) -> anyhow::Result<EspWifi<'a>> {
+pub fn connect<'a>(modem : esp_idf_hal::modem::Modem, sysloop : &'a EspEventLoop<System>,
+                   nvs : EspNvsPartition<NvsDefault>) -> anyhow::Result<EspWifi<'a>> {
 
   use crate::secrets::*;
-
-  let nvs = EspDefaultNvsPartition::take().unwrap();
 
   let mut wifi = EspWifi::new(modem, sysloop.clone(), Some(nvs))?;
 

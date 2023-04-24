@@ -5,12 +5,14 @@
 #![feature(unboxed_closures)]
 
 
+use acs712::ACS172;
 use embedded_hal::blocking::i2c::{WriteRead, Write};
 use embedded_svc::http::{Method, server::{Response, Request}};
-use esp_idf_hal::{prelude::Peripherals, units::Hertz, i2c::{self, I2cDriver, I2c}, gpio::{AnyIOPin, InputPin, OutputPin, PinDriver, IOPin}, peripheral::Peripheral, delay::FreeRtos, adc::{AdcDriver, AdcChannelDriver, Atten0dB}, spi::SpiDeviceDriver};
-use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::{NvsCustom, EspNvs, EspNvsPartition}, http::server::EspHttpServer};
-use esp_idf_sys::{self as _, EspError}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-use std::{ops::{DerefMut, Deref}, sync::{Mutex, Arc}, time::UNIX_EPOCH, thread, ptr::null_mut};
+use esp_idf_hal::{prelude::Peripherals, units::Hertz, i2c::{self, I2cDriver, I2c}, gpio::{AnyIOPin, InputPin, OutputPin, PinDriver, IOPin, ADCPin}, peripheral::Peripheral, delay::FreeRtos, adc::{AdcDriver, AdcChannelDriver, Atten0dB, Adc}, spi::{SpiDeviceDriver, SpiDriver, SpiError}};
+use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::{NvsCustom, EspNvs, EspNvsPartition, EspDefaultNvsPartition, NvsDefault}, http::server::EspHttpServer};
+use esp_idf_sys::{self as _, EspError};
+use linearly_calibrated::{LinearCalibration, LinearlyCalibratedSensor, LinearCalibrated}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
+use std::{ops::{DerefMut, Deref}, sync::{Mutex, Arc}, time::UNIX_EPOCH, thread, ptr::null_mut, error::Error};
 
 use anyhow::{Context, anyhow};
 use shared_bus::{I2cProxy, NullMutex, BusManager, BusMutex};
@@ -38,6 +40,12 @@ mod nvs;
 
 /// compress/decompress measurements
 mod meas;
+
+/// ACS712 current sensor
+mod acs712;
+
+/// wrapper for hx711 and acs712 to make and apply calibrations
+mod linearly_calibrated;
 
 use on_both::OnBoth;
 use meas::Meas;
@@ -137,7 +145,8 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take().context("expected peripherals")?;
     let sysloop = EspSystemEventLoop::take()?;
-    let _ = wifi::connect(peripherals.modem, &sysloop)?;
+    let nvs = EspDefaultNvsPartition::take().unwrap();
+    let _ = wifi::connect(peripherals.modem, &sysloop, nvs.clone())?;
 
 
     let i2c_bus = mk_i2c_bus(peripherals.i2c0,
@@ -163,7 +172,7 @@ fn main() -> anyhow::Result<()> {
                                     peripherals.rmt.channel0)?;
 
     // TODO tare and calibrate
-    let mut hx711 = {
+    let mut hx711_raw = {
         let mosi = peripherals.pins.gpio14.downgrade();
         let miso = peripherals.pins.gpio19.downgrade();
         let sclk = peripherals.pins.gpio18.downgrade();
@@ -177,16 +186,6 @@ fn main() -> anyhow::Result<()> {
                                         nocs,
                                         &config)?)
     };
-
-    // TODO calibrate
-    let mut acs712 = {
-        let conf = Default::default();
-        let mut driver = AdcDriver::new(peripherals.adc1, &conf)?;
-        let mut channel : AdcChannelDriver<_, Atten0dB<_>> = AdcChannelDriver::new(peripherals.pins.gpio0)?;
-        Ok(move || driver.read(&mut channel)
-                .map_err(|e : EspError| anyhow!("adc error: {:?}", e))
-           ) .map_err(|e : EspError| anyhow!("adc init error: {:?}", e))
-    }?;
 
     // should this instead be a record of Arc<Mutex<>> to keep
     // threads more independent?
@@ -212,6 +211,29 @@ fn main() -> anyhow::Result<()> {
     // flash storage for compressed sensor data
     let measured_partition = EspNvsPartition::<NvsCustom>::take("measured")?;
     let comp = Arc::new(Mutex::new(EspNvs::new(measured_partition, "comp",true)?));
+    let calib = Arc::new(Mutex::new(EspNvs::new(nvs, "calib", true)?));
+
+    let acs712_raw = ACS172::new( peripherals.pins.gpio0, peripherals.adc1)?;
+
+    let acs712 = Arc::new(Mutex::new(
+                LinearlyCalibratedSensor{ driver : acs712_raw,
+                    calibration : LinearCalibration::new(),
+                    nvs : calib.clone(),
+                    name : "ACS712".to_string()}));
+
+    let hx711 = Arc::new(Mutex::new(
+            LinearlyCalibratedSensor{ driver : hx711_raw,
+                    calibration : LinearCalibration::new(),
+                    nvs : calib,
+                    name : "HX711".to_string()}));
+
+    // add fn_handler for these?
+    // acs712.tare_measurement(0.0)?;
+    // acs712.tare_measurement(xxx)?;
+    // acs712.save_calibration()?;
+    acs712.lock().unwrap().load_calibration()?;
+    // and the same for hx711
+    // confirm what happens when the calibration is not found
 
     let mut http = EspHttpServer::new(&Default::default())?;
 
@@ -348,9 +370,6 @@ fn main() -> anyhow::Result<()> {
         // get N1 measurements
         for i in 0..meas::N1 {
             let (inside,outside) = shts(SHT31::read)?;
-            let g = hx711.read()
-                    .map_err(|e| anyhow::anyhow!("spi error: {:?}", e))?;
-            let amps = acs712()?;
             FreeRtos::delay_ms(config.lock().unwrap().measurement_period_ms);
 
             // copy into Meas
@@ -358,10 +377,8 @@ fn main() -> anyhow::Result<()> {
             meas.outside_temp[i] = outside.temperature;
             meas.inside_rh[i] = inside.humidity;
             meas.outside_rh[i] = outside.humidity;
-            // confirm conversion
-            meas.amps[i] = amps as f32;
-            meas.grams[i] = g as f32;
-
+            meas.amps[i] = acs712.lock().unwrap().read()?;
+            meas.grams[i] = hx711.lock().unwrap().read()?;
             let w = abs_humidity_g_per_m3(inside.temperature, inside.humidity);
             if w < config.lock().unwrap().w_cut { meas.cutoffs += 1; }
         }
