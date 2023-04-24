@@ -159,7 +159,7 @@ fn main() -> anyhow::Result<()> {
         stepper::calibrate(step, hall1, hall2, hall3)?
     }));
 
-    let ir_shutdown = IrShutdown::new(peripherals.pins.gpio13.into(),
+    let ir_shutdown = IrShutdown::new(peripherals.pins.gpio13,
                                     peripherals.rmt.channel0)?;
 
     // TODO tare and calibrate

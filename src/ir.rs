@@ -1,8 +1,8 @@
-use std::{sync::{Mutex, Arc}, ops::DerefMut};
+use std::sync::{Mutex, Arc};
 
-use esp_idf_hal::{gpio::{AnyOutputPin, OutputPin}, rmt::{CHANNEL0, FixedLengthSignal, TxRmtDriver, RmtTransmitConfig, Pulse, PinState, PulseTicks, RmtChannel}, peripheral::Peripheral};
+use esp_idf_hal::{gpio::OutputPin, rmt::{FixedLengthSignal, TxRmtDriver, RmtTransmitConfig, Pulse, PinState, PulseTicks, RmtChannel}, peripheral::Peripheral};
 
-pub struct IrShutdown<'d> (Arc<Mutex<IrShutdownState>>);
+pub struct IrShutdown<'d> (Arc<Mutex<IrShutdownState<'d>>>);
 
 /// boiletplate to be able to use `ir_shutdown();`
 impl<'d> FnOnce<()> for IrShutdown<'d> {
@@ -24,12 +24,12 @@ impl<'d> FnMut<()> for IrShutdown<'d> {
     }
 }
 
-struct IrShutdownState {
-   tx : TxRmtDriver<'static>,
+struct IrShutdownState<'d> {
+   tx : TxRmtDriver<'d>,
    signal : FixedLengthSignal<2>,
 }
 
-impl IrShutdownState {
+impl<'d> IrShutdownState<'d> {
     fn send_signal(&mut self) {
         self.tx.start_blocking(&self.signal).unwrap();
     }
