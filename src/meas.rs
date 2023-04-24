@@ -27,29 +27,28 @@ impl Meas<[f32;N1]> {
             amps : [0.0;N1],
         }
     }
-    pub fn compress(self) -> Meas<Vec<u8>> {
-        Meas {
-            time : self.time,
-            inside_temp : q_compress::auto_compress(&self.inside_temp, 8),
-            outside_temp : q_compress::auto_compress(&self.outside_temp, 8),
-            inside_rh : q_compress::auto_compress(&self.inside_rh, 8),
-            outside_rh : q_compress::auto_compress(&self.outside_rh, 8),
-            grams : q_compress::auto_compress(&self.grams, 8),
-            amps : q_compress::auto_compress(&self.amps, 8),
-        }
-    }
 }
 
-impl Meas<Vec<u8>> {
-    pub fn decompress(self) -> Meas<Vec<f32>> {
+pub fn compress(x : Meas<[f32; N1]>) -> Meas<Vec<u8>> {
         Meas {
-            time : self.time,
-            inside_temp : q_compress::auto_decompress(&self.inside_temp).unwrap(),
-            outside_temp : q_compress::auto_decompress(&self.outside_temp).unwrap(),
-            inside_rh : q_compress::auto_decompress(&self.inside_rh).unwrap(),
-            outside_rh : q_compress::auto_decompress(&self.outside_rh).unwrap(),
-            grams : q_compress::auto_decompress(&self.grams).unwrap(),
-            amps : q_compress::auto_decompress(&self.amps).unwrap(),
+            time : x.time,
+            inside_temp : q_compress::auto_compress(&x.inside_temp, 8),
+            outside_temp : q_compress::auto_compress(&x.outside_temp, 8),
+            inside_rh : q_compress::auto_compress(&x.inside_rh, 8),
+            outside_rh : q_compress::auto_compress(&x.outside_rh, 8),
+            grams : q_compress::auto_compress(&x.grams, 8),
+            amps : q_compress::auto_compress(&x.amps, 8),
         }
     }
+
+pub fn decompress(x : Meas<Vec<u8>>) -> Meas<Vec<f32>> {
+        Meas {
+            time : x.time,
+            inside_temp : q_compress::auto_decompress(&x.inside_temp).unwrap(),
+            outside_temp : q_compress::auto_decompress(&x.outside_temp).unwrap(),
+            inside_rh : q_compress::auto_decompress(&x.inside_rh).unwrap(),
+            outside_rh : q_compress::auto_decompress(&x.outside_rh).unwrap(),
+            grams : q_compress::auto_decompress(&x.grams).unwrap(),
+            amps : q_compress::auto_decompress(&x.amps).unwrap(),
+        }
 }

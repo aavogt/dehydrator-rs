@@ -282,21 +282,19 @@ fn main() -> anyhow::Result<()> {
 
          // body
          for mut j in j0 ..= j_n {
-             // maybe I should use the other interface?
              let mut comp1 = comp1.lock().unwrap();
-             let bk = nvs::ReadWrite(
-                        comp1.deref_mut(),
-                        &mut j);
-             let b : Meas<Vec<u8>> = ciborium::de::from_reader(bk)?;
-             // call the decompress method
-             let b = b.decompress();
+             let b = meas::decompress(
+                      ciborium::de::from_reader(
+                          nvs::ReadWrite(comp1.deref_mut(),
+                            &mut j))?);
              // or use a csv writing library?
              for i in 0..b.inside_temp.len() {
                  embedded_svc::io::Write::write_fmt(&mut rsp, format_args!("{},{},{},{},{},{},{},{},{}\n",
                                j.to_str(),
                                i,
                                b.time, // time is per blob. could be interpolated using i but then
-                                       // we need the time from the previous blob
+                                       // we need the time from the previous blob or otherwise
+                                       // assume a constant time step
                                b.inside_temp[i],
                                b.inside_rh[i],
                                b.outside_temp[i],
@@ -370,7 +368,7 @@ fn main() -> anyhow::Result<()> {
         let writer = nvs::ReadWrite(comp.deref_mut(), &mut j);
 
         // write the compressed meas into the nvs
-        ciborium::ser::into_writer(&meas.compress(), writer)?;
+        ciborium::ser::into_writer(&meas::compress(meas), writer)?;
     }
 
 }
