@@ -138,7 +138,8 @@ impl std::io::Read for ReadWrapper<'_, '_> {
     }
 }
 
-/// I have two linearly calibrated sensors. This struct is sent as json. TODO remove hardcoded 2?
+/// I have two linearly calibrated sensors. This struct is received from js as json.
+/// TODO remove hardcoded 2?
 #[derive(Serialize, Deserialize)]
 struct CalibrationRequest {
     save : [bool;2],

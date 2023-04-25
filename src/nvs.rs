@@ -111,12 +111,10 @@ impl Step for Key {
 }
 
 
-/// A reader/writer for ciborium that uses esp-idf nvs
-///
-/// `nvs::ReadWrite(&mut nvs, &mut key)`
-/// where 
-///     nvs: &EspNvs<NvsCustom>
-///     key : &mut Key
+/// A reader/writer for ciborium that uses esp-idf nvs.
+/// This allows ciborium::de::from_reader and ciborium::ser::to_writer
+/// to call [esp_idf_svc::nvs::EspNvs::set_blob]
+/// and     [esp_idf_svc::nvs::EspNvs::get_blob]
 pub struct ReadWrite<'a> (pub &'a mut EspNvs<NvsCustom>, pub &'a mut Key);
 
 impl <'a> ciborium_io::Write for ReadWrite<'a> {
@@ -140,8 +138,9 @@ impl <'a> ciborium_io::Read for ReadWrite<'a> {
     }
 }
 
-/// reader/writer just like ReadWrite, except the key is a string slice
-/// and it is stored in the NvsDefault partition
+/// see [ReadWrite]. There are two difference. First the key is a string slice,
+/// so there is no way to "get the first/last/next key". And the NvsDefault partition
+/// is used which is the first partition in `partitions.csv`
 pub struct ReadWriteStr<'a> (pub &'a mut EspNvs<NvsDefault>, pub &'a str);
 
 impl <'a> ciborium_io::Write for ReadWriteStr<'a> {

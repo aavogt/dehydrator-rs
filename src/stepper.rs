@@ -135,7 +135,7 @@ pub fn calibrate<'d>(step : HalfStep<'d>,
 
 pub struct HalfStep<'d> {
     pps : [PinDriver<'d, AnyOutputPin, gpio::Output>; 4],
-    /// For each half step i, the lowest 4 bits of pulse[i] specify
+    /// For each half step `i`, the lowest 4 bits of `pulse[i]` specify
     /// the level of the 4 coils energized by pps.
     /// Copied fromt the table at <https://vanhunteradams.com/Pico/Steppers/Lorenz.html>
     pulse : [u8; 8],
