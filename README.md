@@ -19,7 +19,7 @@ To this end I have selected the following components:
          - [ ] reassign pins (13 pins < 15 or 17 available)
  - [x] sht31: 2 pins for both
  - [x] nvs
-   - [x] compress, serialize and store in nvs
+   - [x] compress, serialize and store measurements in nvs
    - [x] streamingly load, decompress, deserialize, turn into csv
    - [x] calibrations
    - [ ] test?

@@ -171,6 +171,7 @@ fn main() -> anyhow::Result<()> {
     let _ = wifi::connect(peripherals.modem, &sysloop, nvs.clone())?;
 
 
+    // pins are assigned below
     let i2c_bus = mk_i2c_bus(peripherals.i2c0,
                        peripherals.pins.gpio6,
                        peripherals.pins.gpio7)?;
