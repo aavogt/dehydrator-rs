@@ -8,11 +8,13 @@
 use acs712::ACS172;
 use embedded_hal::blocking::i2c::{WriteRead, Write};
 use embedded_svc::http::{Method, server::{Response, Request}};
-use esp_idf_hal::{prelude::Peripherals, units::Hertz, i2c::{self, I2cDriver, I2c}, gpio::{AnyIOPin, InputPin, OutputPin, PinDriver, IOPin, ADCPin}, peripheral::Peripheral, delay::FreeRtos, adc::{AdcDriver, AdcChannelDriver, Atten0dB, Adc}, spi::{SpiDeviceDriver, SpiDriver, SpiError}};
-use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::{NvsCustom, EspNvs, EspNvsPartition, EspDefaultNvsPartition, NvsDefault}, http::server::EspHttpServer};
-use esp_idf_sys::{self as _, EspError};
-use linearly_calibrated::{LinearCalibration, LinearlyCalibratedSensor, LinearCalibrated}; // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
-use std::{ops::{DerefMut, Deref}, sync::{Mutex, Arc}, time::UNIX_EPOCH, thread, ptr::null_mut, error::Error};
+use esp_idf_hal::{prelude::Peripherals, units::Hertz, i2c::{self, I2cDriver, I2c}, gpio::{AnyIOPin, InputPin, OutputPin, PinDriver, IOPin}, peripheral::Peripheral, delay::FreeRtos, spi::SpiDeviceDriver};
+use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::{NvsCustom, EspNvs, EspNvsPartition, EspDefaultNvsPartition}, http::server::EspHttpServer};
+use esp_idf_sys::{self as _};
+use linearly_calibrated::CalibratedSensor;
+
+// If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
+use std::{ops::{DerefMut, Deref}, sync::{Mutex, Arc}, thread, ptr::null_mut};
 
 use anyhow::{Context, anyhow};
 use shared_bus::{I2cProxy, NullMutex, BusManager, BusMutex};
@@ -136,7 +138,27 @@ impl std::io::Read for ReadWrapper<'_, '_> {
     }
 }
 
+/// I have two linearly calibrated sensors. This struct is sent as json. TODO remove hardcoded 2?
+#[derive(Serialize, Deserialize)]
+struct CalibrationRequest {
+    save : [bool;2],
+    y : [Option<f32>;2],
+}
 
+impl CalibrationRequest {
+    fn apply(&self, calib : &mut [CalibratedSensor]) -> anyhow::Result<()>{
+        for (i, &save) in self.save.iter().enumerate() {
+            if let Some(y) = self.y[i] {
+                calib[i].tare_measurement(y)?;
+            }
+            if save {
+                calib[i].save_calibration()?;
+            }
+        }
+        Ok(())
+    }
+
+}
 
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -171,8 +193,7 @@ fn main() -> anyhow::Result<()> {
     let ir_shutdown = IrShutdown::new(peripherals.pins.gpio13,
                                     peripherals.rmt.channel0)?;
 
-    // TODO tare and calibrate
-    let mut hx711_raw = {
+    let hx711_raw = {
         let mosi = peripherals.pins.gpio14.downgrade();
         let miso = peripherals.pins.gpio19.downgrade();
         let sclk = peripherals.pins.gpio18.downgrade();
@@ -186,6 +207,9 @@ fn main() -> anyhow::Result<()> {
                                         nocs,
                                         &config)?)
     };
+
+    let acs712_raw = ACS172::new( peripherals.pins.gpio0, peripherals.adc1)?;
+    // pins are assigned above
 
     // should this instead be a record of Arc<Mutex<>> to keep
     // threads more independent?
@@ -213,29 +237,37 @@ fn main() -> anyhow::Result<()> {
     let comp = Arc::new(Mutex::new(EspNvs::new(measured_partition, "comp",true)?));
     let calib = Arc::new(Mutex::new(EspNvs::new(nvs, "calib", true)?));
 
-    let acs712_raw = ACS172::new( peripherals.pins.gpio0, peripherals.adc1)?;
-
-    let acs712 = Arc::new(Mutex::new(
-                LinearlyCalibratedSensor{ driver : acs712_raw,
-                    calibration : LinearCalibration::new(),
-                    nvs : calib.clone(),
-                    name : "ACS712".to_string()}));
-
-    let hx711 = Arc::new(Mutex::new(
-            LinearlyCalibratedSensor{ driver : hx711_raw,
-                    calibration : LinearCalibration::new(),
-                    nvs : calib,
-                    name : "HX711".to_string()}));
-
-    // add fn_handler for these?
-    // acs712.tare_measurement(0.0)?;
-    // acs712.tare_measurement(xxx)?;
-    // acs712.save_calibration()?;
-    acs712.lock().unwrap().load_calibration()?;
-    // and the same for hx711
-    // confirm what happens when the calibration is not found
+    let calibrated_sensors = Arc::new(Mutex::new([
+        CalibratedSensor::new(acs712_raw,
+            calib.clone(),
+            "ACS712".to_string()),
+        CalibratedSensor::new(hx711_raw,
+            calib,
+            "HX711".to_string()),
+    ]));
 
     let mut http = EspHttpServer::new(&Default::default())?;
+
+
+    // set/save calibration
+    let calibrated_sensors1 = calibrated_sensors.clone();
+    http.fn_handler("/calib", Method::Post, move |rq| {
+        let calib_rq : CalibrationRequest = serde_json::from_reader(ReadWrapper(rq))?;
+        let mut cs = calibrated_sensors1.lock().unwrap();
+        calib_rq.apply(&mut *cs)?;
+        Ok(())
+    })?;
+
+    // report the current calibrations
+    let calibrated_sensors1 = calibrated_sensors.clone();
+    http.fn_handler("/calib", Method::Get, move |rq| {
+        let cs = calibrated_sensors1.lock().unwrap();
+        // TODO figure out cs.map(|x| x.calibration);
+        let calibs = [ cs[0].calibration, cs[1].calibration];
+        serde_json::to_writer(WriteWrapper(rq.into_ok_response()?),
+                    &calibs)?;
+        Ok(())
+    })?;
 
     // remove redundancy?
     // serve www/index.html included in the binary
@@ -372,13 +404,17 @@ fn main() -> anyhow::Result<()> {
             let (inside,outside) = shts(SHT31::read)?;
             FreeRtos::delay_ms(config.lock().unwrap().measurement_period_ms);
 
+
             // copy into Meas
             meas.inside_temp[i] = inside.temperature;
             meas.outside_temp[i] = outside.temperature;
             meas.inside_rh[i] = inside.humidity;
             meas.outside_rh[i] = outside.humidity;
-            meas.amps[i] = acs712.lock().unwrap().read()?;
-            meas.grams[i] = hx711.lock().unwrap().read()?;
+            {
+                let mut calib = calibrated_sensors.lock().unwrap();
+                meas.amps[i] = calib[0].read()?;
+                meas.grams[i] = calib[1].read()?;
+            }
             let w = abs_humidity_g_per_m3(inside.temperature, inside.humidity);
             if w < config.lock().unwrap().w_cut { meas.cutoffs += 1; }
         }
