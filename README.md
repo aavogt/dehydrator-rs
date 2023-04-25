@@ -50,7 +50,8 @@ To this end I have selected the following components:
    - [x] submit/receive/manipulate T(t) profile, `w_cutoff`, `n_wavelets`
    - [x] request historical csv
    - [ ] request calibrations
-   - [ ] plot historical csv with wavelet smoothing applied and overlay the cutoff?
+   - [ ] plot historical csv with wavelet smoothing applied and overlay the cutoff? `esp_idf_sys::{httpd_req_get_url_query_len,httpd_req_get_url_query_str,httpd_query_key_value};`
+
    - [ ] current conditions
    - [ ] chart.js from a cdn or perhaps it will be small enough to be served from the esp32c3. Another option is to make it an android app.
    - [ ] current data. The js would be making requests? More natural would be for the js to subscribe and for the main.rs main loop to push the data. This is not http however. MQTT needs a server in the middle. Or the http request is made for data and this stays open?
