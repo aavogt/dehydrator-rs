@@ -16,7 +16,7 @@ To this end I have selected the following components:
 # TODO
 
  - [ ] vero board layout
-         - [ ] reassign pins (13 pins < 15 or 17 available)
+         - [ ] reassign pins (13 pins < 15 or 17 available), adc pins are 0 through 5
  - [x] sht31: 2 pins for both
  - [x] nvs
    - [x] compress, serialize and store measurements in nvs
