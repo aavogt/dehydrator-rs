@@ -294,3 +294,40 @@ document.getElementById("T_min").addEventListener("input", () => {
         };
 });
 
+
+
+function submitCalibration() {
+        // values from the calibration form
+        let y1 = document.getElementById("calibration_y1").value;
+        let y2 = document.getElementById("calibration_y2").value;
+        const s1 = document.getElementById("calibration_save1").value;
+        const s2 = document.getElementById("calibration_save2").value;
+        // not sure if this is needed
+        if (y1 == "") y1 = null;
+        if (y2 == "") y2 = null;
+        const data = {
+                "y": [y1, y2],
+                "save": [s1, s2]
+        }
+        // submit POST request
+        var request = new XMLHttpRequest();
+        request.open("POST", "/calib", true);
+        request.setRequestHeader("Content-Type", "application/json");
+        request.send(JSON.stringify(data));
+}
+
+// retrieve calibration data from server with a GET to /calib,
+// and store it in the calibration form
+// not quite right because calibration data is a pair of x and y points
+// the server sends an array of objects with x0 x1 y0 and y1 properties
+function getCalibration() {
+        var request = new XMLHttpRequest();
+        request.open("GET", "/calib", true);
+        request.onload = function() {
+                const data = JSON.parse(this.response);
+                function to_str(obj) { `x,y=${obj.x0},${obj.y0}; x,y=${obj.x1},${obj.y1}` };
+                document.getElementById("calibration_1").value = to_str(data[0]);
+                document.getElementById("calibration_2").value = to_str(data[1]);
+        };
+        request.send();
+}

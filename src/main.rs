@@ -138,7 +138,11 @@ impl std::io::Read for ReadWrapper<'_, '_> {
     }
 }
 
-/// I have two linearly calibrated sensors. This struct is received from js as json.
+/// Used to deserialize requests like `{"save":[true,false],"y":[3.14,null]}` from app.js
+/// That request in particular says that the first sensor's calibration should be changed
+/// so that the current measurement is 3.14. The second sensor's calibration is unchanged.
+/// Only the first sensor's calibration is saved in flash.
+///
 /// TODO remove hardcoded 2?
 #[derive(Serialize, Deserialize)]
 struct CalibrationRequest {

@@ -49,7 +49,9 @@ To this end I have selected the following components:
  - [x] serve www/{app.js,index.html} for local development serve it with `pnpm dev --open chromium-browser`
    - [x] submit/receive/manipulate T(t) profile, `w_cutoff`, `n_wavelets`
    - [x] request historical csv
-   - [ ] request calibrations
+   - [x] GET/POST calibrations to `/calib`
+        - [ ] option to submit the whole calibration rather than just the y value corresponding to the current x?
+        - [ ] display calibration line and not just two x,y pairs
    - [ ] plot historical csv with wavelet smoothing applied and overlay the cutoff? `esp_idf_sys::{httpd_req_get_url_query_len,httpd_req_get_url_query_str,httpd_query_key_value};`
 
    - [ ] current conditions

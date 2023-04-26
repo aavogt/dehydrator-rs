@@ -75,6 +75,32 @@
 </tr>
 </table>
 </form>
-        </div>
+
+<!-- form for POSTing a CalibrationRequest { save: [bool], y: [number] }, where each array has length two -->
+<form id="calibrationForm" onsubmit="return submitCalibration()">
+<table>
+<tr>
+        <td><label for="calibration_y1">power (W) currently:</label><span id="calibration_1">??</span></td>
+        <td><input type="text" pattern="\d*.\d*" value="" id="calibration_y1"></td>
+</tr>
+<tr>
+        <td><label for="calibration_y2">weight (g) currently:</label><span id="calibration_2">??</span></td>
+        <td><input type="text" pattern="\d*.\d*" value="" id="calibration_y2"></td>
+</tr>
+<tr>
+        <td><label for="calibration_save">save power</label></td>
+        <td><input type="checkbox" id="calibration_save1"></td>
+</tr>
+<tr>
+        <td><label for="calibration_save">save weight</label></td>
+        <td><input type="checkbox" id="calibration_save2"></td>
+</tr>
+<tr>
+        <td><button type="submit">submit calibration request</button></td>
+</tr>
+</table>
+</form>
+
+</div>
 <script type="module" src="./app.js"></script>
 </body>        
