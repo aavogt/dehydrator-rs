@@ -61,6 +61,8 @@ impl <'d>CalibratedSensor<'d>  {
     /// overwrite one point of the calibration stored in memory
     /// y is the desired output value for the raw x value from the
     /// raw_read call
+    ///
+    /// strictly speaking it's only "tare" if y is 0.0
     pub fn tare_measurement(&mut self, y: f32) -> anyhow::Result<()> {
         let x = self.driver.lock().unwrap().read()?;
 
