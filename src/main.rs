@@ -166,18 +166,21 @@ fn main() -> anyhow::Result<()> {
                                     peripherals.rmt.channel0)?;
 
     let hx711_raw = {
-        let mosi = peripherals.pins.gpio14.downgrade();
-        let miso = peripherals.pins.gpio19.downgrade();
-        let sclk = peripherals.pins.gpio18.downgrade();
+        let sdo = peripherals.pins.gpio14; // connected to SCK on HX711 board
+        let sdi = peripherals.pins.gpio19; // connected to DT
+        let sclk = peripherals.pins.gpio18; // not connected
         let nocs : Option<AnyIOPin> = None;
         let mut config : esp_idf_hal::spi::config::Config = Default::default(); 
         config.baudrate = Hertz(1_000_000); // override others?
 
         Hx711::new(SpiDeviceDriver::new_single(
-                    peripherals.spi2, mosi, miso, Some(sclk),
-                                        esp_idf_hal::spi::Dma::Disabled,
-                                        nocs,
-                                        &config)?)
+                    peripherals.spi2,
+                    sclk,
+                    sdo,
+                    Some(sdi),
+                    esp_idf_hal::spi::Dma::Disabled,
+                    nocs,
+                    &config)?)
     };
 
     let acs712_raw = ACS172::new( peripherals.pins.gpio0, peripherals.adc1)?;
