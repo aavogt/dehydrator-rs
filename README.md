@@ -1,6 +1,6 @@
 # Dehydrator Automation
 
-This project is for me to learn esp32 with rust. Also I wanted food dehydrator that shuts itself off when finished. The final dryness is hard to define, so I measure a total weight as well as humidity. I am also interested in dropping the temperature as drying proceeds. The temperature profile should minimize cost and maintain quality: higher temperatures may use less electricity: raising the temperature about 10°C doubles the amount of water vapor per mass of air, so half as much dry air has to be heated to a slightly higher temperature to carry the same amount of water vapor out of the dehydrator.
+This project is for me to learn esp32 with rust. Also I wanted food dehydrator that shuts itself off when finished. The final dryness is hard to define, so I measure a total weight as well as humidity. I am also interested in dropping the temperature as drying proceeds. The temperature profile should minimize cost and maintain quality: higher temperatures may use less electricity: raising the temperature about 10°C doubles the maximum amount of water vapor per mass of air, so potentially half as much dry air has to be heated to a slightly higher temperature water to remove the same amount of water.
 
 To this end I have selected the following components:
 
