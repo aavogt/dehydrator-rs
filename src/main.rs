@@ -128,7 +128,6 @@ impl CalibrationRequest {
         }
         Ok(())
     }
-
 }
 
 fn main() -> anyhow::Result<()> {
