@@ -49,9 +49,12 @@ mod acs712;
 /// wrapper for hx711 and acs712 to make and apply calibrations
 mod linearly_calibrated;
 
+
 use on_both::OnBoth;
 use meas::Meas;
 use ir::IrShutdown;
+
+include!("json.rs");
 
 
 fn mk_i2c_bus<'d>(i2c : impl Peripheral<P=impl I2c> + 'd,
@@ -80,32 +83,6 @@ fn mk_shts<T : BusMutex>(i2c_bus : &BusManager<T>) -> OnBoth<SHT31<Periodic, I2c
     OnBoth(sht1, sht2)
 }
 
-
-#[derive(Serialize, Deserialize)]
-struct Config {
-    /// step_times and step_fracs define a piecewise constant function
-    /// for the stepper motor position which in turn determines the temperature profile
-    ///
-    /// Step times is the seconds (since the config was last considered "modified")
-    /// at which stepper should move to the new position. The first element should be 0.
-    step_times: [i64; 20],
-
-    /// position of the stepper motor as a fraction (0,1) of the full range
-    step_fracs: [f32; 20],
-
-    /// the time to wait between measurements in milliseconds
-    measurement_period_ms : u32,
-
-    /// smoothing parameter
-    n_wavelets: u16,
-
-    /// humidity threshold for dehydrator to be shut down
-    w_cut: f32,
-
-    /// system time when the config was last modified (by http). It is subtracted from
-    /// libc::time to get step_times
-    last_modified: i64,
-}
 
 
 
@@ -138,17 +115,6 @@ impl std::io::Read for ReadWrapper<'_, '_> {
     }
 }
 
-/// Used to deserialize requests like `{"save":[true,false],"y":[3.14,null]}` from app.js
-/// That request in particular says that the first sensor's calibration should be changed
-/// so that the current measurement is 3.14. The second sensor's calibration is unchanged.
-/// Only the first sensor's calibration is saved in flash.
-///
-/// TODO remove hardcoded 2?
-#[derive(Serialize, Deserialize)]
-struct CalibrationRequest {
-    save : [bool;2],
-    y : [Option<f32>;2],
-}
 
 impl CalibrationRequest {
     fn apply(&self, calib : &mut [CalibratedSensor]) -> anyhow::Result<()>{
@@ -285,9 +251,9 @@ fn main() -> anyhow::Result<()> {
     })?;
 
     // serve www/app.js included in the binary
-    http.fn_handler("/app.js", Method::Get, move |rq| {
+    http.fn_handler("/app.ts", Method::Get, move |rq| {
         let mut rsp = rq.into_ok_response()?;
-        let file = include_bytes!("../www/app.js");
+        let file = include_bytes!("../www/app.ts");
         rsp.write(file)?;
         Ok(())
     })?;

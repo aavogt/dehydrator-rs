@@ -2,6 +2,8 @@ import Chart from 'chart.js/auto';
 import { getRelativePosition } from 'chart.js/helpers';
 
 
+import { types } from "./json.js";
+
 // GET and POST data relative to the current URL
 const configDataUrl = window.location.href + "/config";
 // const measurementDataURL = window.location.href + "/measurement.csv";
@@ -38,8 +40,8 @@ function piecewiseConstantFromMap() {
 }
 
 // Define the initial values of the function
-const xValues = [0, 1, 2, 3, 5];
-const yValues = [75, 60, 50, 40, 35];
+let xValues = [0, 1, 2, 3, 5];
+let yValues = [75, 60, 50, 40, 35];
 
 
 // attempt to request the data from the server
@@ -53,20 +55,22 @@ function getData() {
         request.onload = () => {
                 if (request.status == 200) {
                         // parse the json object and report an error if it is not valid
-                        try { var data = JSON.parse(request.responseText) } catch (e) {
+                        try { var data : types.Config = JSON.parse(request.responseText) } catch (e) {
                                 // alert("The server did not respond with valid data. Using default values.");
                                 return;
                         };
                         xValues = data.step_times;
-                        yValues = data.step_fracs * 40 + 35; // convert from 0..1 to 35..75
-                        // set w_cut
-                        document.getElementById("w_cut").value = data.w_cut;
-                        // set n_wavelets
-                        document.getElementById("n_wavelets").value = data.n_wavelets;
-                        // set measurement period
-                        document.getElementById("period_ms").value = data.measurement_period_ms;
 
-                        xD = discretizeN('t', xValues);
+                        for (const [i, v] of data.step_fracs.entries()) {
+                                yValues[i] = v * 40 + 35;
+                        }
+
+                        // set the input values to the values received from the server
+                        for (const n in ["w_cut", "n_wavelets", "period_ms"]) {
+                         (document.getElementById(n) as HTMLInputElement).value = data[n].toString();
+                        }
+
+                        const xD = discretizeN('t', xValues);
                         xValues.map((curr, i) => { MAP.set(xD[i], [curr, yValues[i]]) });
                         sortCleanReplot();
                 } else {
@@ -83,13 +87,25 @@ function submitData() {
         var request = new XMLHttpRequest();
         request.open("POST", configDataUrl, false);
         request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-        request.send(JSON.stringify({
-                step_times: Array.from(MAP.values()).map(x => x[0]),
-                step_fracs: Array.from(MAP.values()).map(x => (x[1] - 35) / 40.0),
-                w_cut: document.getElementById("w_cut").value,
-                n_wavelets: document.getElementById("n_wavelets").value,
-                measurement_period_ms : document.getElementById("period_ms").value
-        }));
+        // TODO better initialization
+        let st : types.Config["step_times"] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        let sf : types.Config["step_fracs"] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        
+        for (const [i, v] of Array.from(MAP.values()).entries()) {
+                st[i] = v[0];
+                sf[i] = (v[1] - 35) / 40.0;
+        }
+
+        const f = (n,def) => parseFloat((document.getElementById(n) as HTMLInputElement).value) ?? def
+        const response : types.Config = {
+                step_times: st,
+                step_fracs: sf,
+                w_cut: f("w_cut",12),
+                n_wavelets: f("n_wavelets", 40),
+                measurement_period_ms : f("measurement_period_ms", 1000),
+                last_modified: 0
+        }
+        request.send(JSON.stringify(response));
 };
 
 // global map from rounded time values to [time, Temperature] pairs
@@ -97,21 +113,21 @@ var MAP = new Map();
 
 // if n is "T" then we use T_divs and T_max, if n is "t" then we use t_divs and t_max in the call to discretize
 function discretizeN(n, xs) {
-        const divs = document.getElementById(n + "_divs");
-        const max = document.getElementById(n + "_max");
-        const min = document.getElementById(n + "_min");
+        const divs = document.getElementById(n + "_divs") as HTMLInputElement;
+        const max = document.getElementById(n + "_max")   as HTMLInputElement;
+        const min = document.getElementById(n + "_min")   as HTMLInputElement;
         let minVal = 0;
-        if (min != null) minVal = min.value;
-        return discretize(divs.value,
-                max.value,
+        if (min != null) minVal = parseFloat(min.value);
+        return discretize(parseInt(divs.value),
+                parseInt(max.value),
                 minVal,
                 xs);
 }
 
 // make an integer array with values on [0,divs] from a float array xs
 // which is assumed to be on [min,max]
-function discretize(divs, max, min, xs) {
-        var out = [];
+function discretize(divs : number, max : number, min : number, xs : number[]) : number[]{
+        var out : number[] = Array();
         // ensure divs is an integer
         divs = Math.round(divs);
         for (const x of xs) {
@@ -148,12 +164,12 @@ function insertOrDelete(x, y) {
 // - drag and touch events
 // - disable or improve animation on update: when deleting or adding a point
 //   the old points all move over one index left or right
-const TtChartElem = document.getElementById("TtChart");
+const TtChartElem = document.getElementById("TtChart") as HTMLCanvasElement;
 getData();
 const TtChart = new Chart(TtChartElem, {
   type: "scatter",
   options: {
-          scales: { x: { min: 0, max : Math.round(document.getElementById("t_max").value),
+          scales: { x: { min: 0, max : Math.round((document.getElementById("t_max") as HTMLInputElement).value ?? "100"),
                                 title : { display: true, text: "Time (hours)" } },
                     y: { min: 35, max : 75,
                         title : { display: true, text: "Temperature (°C)" } }},

@@ -15,6 +15,13 @@ To this end I have selected the following components:
 
 # TODO
 
+ - [ ] wifi improvements
+  - [ ] <https://github.com/esp-rs/espressif-trainings/tree/main/common/lib/wifi>
+  - [ ] stop hardcoding credentials <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_dpp.html>. This can't be displayed on the 128x32 oled because 20 lines of UPPER HALF BLOCK, LOWER HALF BLOCK and space needs 41 pixels. Continue reading <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/provisioning/provisioning.html>
+ - [ ] gsl filter before cutoff
+ - [x] `typescript_type_def`
+   - [x] app.js -> app.ts but it doesn't quite typecheck
+ - [ ] www sveltekit svelte-chartjs? adapter-static
  - [ ] vero board layout
          - [ ] reassign pins (13 pins < 15 or 17 available), adc pins are 0 through 5
  - [x] sht31: 2 pins for both
