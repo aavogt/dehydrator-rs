@@ -13,6 +13,11 @@ To this end I have selected the following components:
   - 5kg scale beam with HX711 board
   - ACS712 current sensor. A less invasive SCT-013, or [PZEM-004T](https://tasmota.github.io/docs/PZEM-0XX) might be preferable.
 
+
+Allow GPIO11: `espefuse.py -p /dev/ttyACM0 burn_efuse VDD_SPI_AS_GPIO 1` and type BURN [^burn]
+
+[^burn] https://github.com/chenxuuu/luatos-wiki/discussions/11#discussioncomment-3021045 see also https://www.esp32.com/viewtopic.php?t=25906
+
 # TODO
 
  - [ ] wifi improvements
