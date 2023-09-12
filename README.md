@@ -11,7 +11,7 @@ To this end I have selected the following components:
   - 2xSHT31D humidity temperature sensors for inside and outside
   - 28BYJ-48 stepper motor with ULN2003 board
   - 5kg scale beam with HX711 board
-  - ACS712 current sensor
+  - ACS712 current sensor. A less invasive SCT-013, or [PZEM-004T](https://tasmota.github.io/docs/PZEM-0XX) might be preferable.
 
 # TODO
 
