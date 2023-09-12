@@ -54,7 +54,7 @@ Allow GPIO11: `espefuse.py -p /dev/ttyACM0 burn_efuse VDD_SPI_AS_GPIO 1` and typ
  - [ ] ACS712 current meter: 1 pin
    - [x] raw adc
    - [ ] note calibration https://github.com/esp-rs/esp-hal/issues/326
-   - [ ] where to put it? It could go inside the dehydrator where the plug goes into. But then it's harder to calibrate. There is probably not enough room inside the HENGMING HM-01K3
+   - [x] where to put it? It will go inside the dehydrator. There is probably not enough room inside the HENGMING HM-01K3
  - [x] IR shutoff: 1 pin
    - [x] call from http
    - [ ] needs testing possibly the signal should be something different/standard that the remote can learn
