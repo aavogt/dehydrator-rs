@@ -67,7 +67,16 @@ impl<'d> Stepper<'d> {
 
 pub enum Dir { CC, CW, Off }
 
+pub fn calibrate<'d>(step : HalfStep<'d>, max : i32) -> anyhow::Result<Stepper<'d>> {
+    let mut s = Stepper { min : 0, max, pos : 0, step, delay_ms : 20 };
 
+    // run against the lower limit the drive belt will slip
+    for i in 0..max {
+        s.delay();
+        s.step.activate(Dir::CW)?;
+    }
+    Ok(s)
+}
 
 /// calibrate the stepper relative to the magnet
 /// it is also possible to calibrate it relative to measured temperatures,
@@ -77,7 +86,7 @@ pub enum Dir { CC, CW, Off }
 /// be consistent: when near the magnet
 /// they must either all have high or low levels it does
 /// not matter which in particular.
-pub fn calibrate<'d>(step : HalfStep<'d>,
+pub fn calibrate_with_sensor<'d>(step : HalfStep<'d>,
                          at_min : impl Fn() -> bool,
                          at_mid : impl Fn() -> bool,
                          at_max : impl Fn() -> bool) -> anyhow::Result<Stepper<'d>> {
