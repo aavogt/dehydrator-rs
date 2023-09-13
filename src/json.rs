@@ -3,7 +3,7 @@
 use typescript_type_def::TypeDef; // probably should be optional
 
 #[derive(Serialize, Deserialize, TypeDef)]
-struct Config {
+pub struct Config {
     /// step_times and step_fracs define a piecewise constant function
     /// for the stepper motor position which in turn determines the temperature profile
     ///

@@ -8,7 +8,7 @@
 use acs712::ACS172;
 use embedded_hal::blocking::i2c::{WriteRead, Write};
 use embedded_svc::http::{Method, server::{Response, Request}};
-use esp_idf_hal::{prelude::Peripherals, units::Hertz, i2c::{self, I2cDriver, I2c}, gpio::{AnyIOPin, InputPin, OutputPin, PinDriver, IOPin}, peripheral::Peripheral, delay::FreeRtos, spi::SpiDeviceDriver};
+use esp_idf_hal::{prelude::Peripherals, units::Hertz, i2c::{self, I2cDriver, I2c}, gpio::{AnyIOPin, InputPin, OutputPin, PinDriver}, peripheral::Peripheral, delay::FreeRtos, spi::SpiDeviceDriver};
 use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::{NvsCustom, EspNvs, EspNvsPartition, EspDefaultNvsPartition}, http::server::EspHttpServer};
 use esp_idf_sys::{self as _};
 use linearly_calibrated::CalibratedSensor;
@@ -16,7 +16,7 @@ use linearly_calibrated::CalibratedSensor;
 // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 use std::{ops::{DerefMut, Deref}, sync::{Mutex, Arc}, thread, ptr::null_mut};
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use shared_bus::{I2cProxy, NullMutex, BusManager, BusMutex};
 use sht31::{SHT31, prelude::{Periodic, MPS, Sht31Measure, Sht31Reader}, DeviceAddr::*};
 use serde::{Serialize,Deserialize};
