@@ -20,6 +20,7 @@ Allow GPIO11: `espefuse.py -p /dev/ttyACM0 burn_efuse VDD_SPI_AS_GPIO 1` and typ
 
 # TODO
 
+ - [ ] `!include("json.rs")` confuses rust-analyzer
  - [ ] wifi improvements
   - [ ] <https://github.com/esp-rs/espressif-trainings/tree/main/common/lib/wifi>
   - [ ] stop hardcoding credentials <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_dpp.html>. This can't be displayed on the 128x32 oled because 20 lines of UPPER HALF BLOCK, LOWER HALF BLOCK and space needs 41 pixels. Continue reading <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/provisioning/provisioning.html>
