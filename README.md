@@ -21,6 +21,7 @@ Allow GPIO11: `espefuse.py -p /dev/ttyACM0 burn_efuse VDD_SPI_AS_GPIO 1` and typ
 # TODO
 
  - [ ] `!include("json.rs")` confuses rust-analyzer
+ - [ ] bluetooth option?
  - [ ] wifi improvements
   - [ ] <https://github.com/esp-rs/espressif-trainings/tree/main/common/lib/wifi>
   - [ ] stop hardcoding credentials <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_dpp.html>. This can't be displayed on the 128x32 oled because 20 lines of UPPER HALF BLOCK, LOWER HALF BLOCK and space needs 41 pixels. Continue reading <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/provisioning/provisioning.html>
@@ -69,3 +70,46 @@ Allow GPIO11: `espefuse.py -p /dev/ttyACM0 burn_efuse VDD_SPI_AS_GPIO 1` and typ
    - [ ] current conditions
    - [ ] chart.js from a cdn or perhaps it will be small enough to be served from the esp32c3. Another option is to make it an android app.
    - [ ] current data. The js would be making requests? More natural would be for the js to subscribe and for the main.rs main loop to push the data. This is not http however. MQTT needs a server in the middle. Or the http request is made for data and this stays open?
+   - [ ] treat nvs as variables
+
+
+   trait NvsVarOp where Self : Sized{
+    fn set(self, nvs : EspNvs<NvsCustom>, name: &str) -> Result<(), EspError>;
+    fn get(nvs : EspNvs<NvsCustom>, str : &str) -> Result<Option<Self>, EspError>;
+}
+
+impl NvsVarOp for i32 {
+    fn set(self, nvs : EspNvs<NvsCustom>, field : &str) -> Result<(), EspError> {
+        nvs.set_i32(field, self)
+    }
+    fn get(nvs : EspNvs<NvsCustom>, field : &str) -> Result<Option<i32>, EspError> {
+        nvs.get_i32(field)
+    }
+}
+
+impl NvsVarOp for i16 {
+    fn set(self, nvs : EspNvs<NvsCustom>, field : &str) -> Result<(), EspError> {
+        nvs.set_i16(field, self)
+    }
+    fn get(nvs : EspNvs<NvsCustom>, field : &str) -> Result<Option<i16>, EspError> {
+        nvs.get_i16(field)
+    }
+}
+
+struct NvsVar<T> {
+    nvs : Arc<Mutex<EspNvs<NvsCustom>>>,
+    field : &'static str,
+    phantom : std::marker::PhantomData<T>,
+}
+impl<T : NvsVarOp> NvsVar<T> {
+     fn set(&self, val : i32) -> anyhow::Result<()> {
+         Ok(val.set(self.nvs.lock().unwrap(), self.field)?)
+     }
+}
+impl<T> Deref for NvsVar<T> {
+     type Target = anyhow::Result<Option<i32>>;
+     fn deref(&self) -> Self::Target {
+         Ok(NvsVarOp::get(self.nvs.lock().unwrap(),self.field)?)
+     }
+}
+
