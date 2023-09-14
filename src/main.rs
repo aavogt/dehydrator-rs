@@ -10,7 +10,7 @@ use embedded_hal::blocking::i2c::{WriteRead, Write};
 use embedded_svc::http::{Method, server::{Response, Request}};
 use esp_idf_hal::{prelude::Peripherals, units::Hertz, i2c::{self, I2cDriver, I2c}, gpio::{AnyIOPin, InputPin, OutputPin, PinDriver}, peripheral::Peripheral, delay::FreeRtos, spi::SpiDeviceDriver};
 use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::{NvsCustom, EspNvs, EspNvsPartition, EspDefaultNvsPartition}, http::server::EspHttpServer};
-use esp_idf_sys::{self as _};
+use esp_idf_sys::{self as _, EspError};
 use linearly_calibrated::CalibratedSensor;
 
 // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
@@ -84,16 +84,6 @@ fn mk_shts<T : BusMutex>(i2c_bus : &BusManager<T>) -> OnBoth<SHT31<Periodic, I2c
 }
 
 
-
-
-/// the closure returns true if the hall sensor GPIO is high
-fn mk_hall<'d> (pin : impl Peripheral<P=impl InputPin > + 'd) -> anyhow::Result<Box<impl Fn() -> bool + 'd>> {
-    let hall = PinDriver::input(pin)?;
-    // set pullup / down?
-    Ok(Box::new(move || hall.is_high()))
-}
-
-
 /// implement std::io::Write in terms of embedded_svc::io::blocking::Write
 /// for serde_json
 struct WriteWrapper<'d, 'a> (Response<&'d mut esp_idf_svc::http::server::EspHttpConnection<'a>>);
@@ -140,6 +130,14 @@ fn main() -> anyhow::Result<()> {
     let nvs = EspDefaultNvsPartition::take().unwrap();
     let _ = wifi::connect(peripherals.modem, &sysloop, nvs.clone())?;
 
+    // flash storage for compressed sensor data
+    let measured_partition = EspNvsPartition::<NvsCustom>::take("measured")?;
+    let comp = Arc::new(Mutex::new(EspNvs::new(measured_partition, "comp",true)?));
+    let calib = Arc::new(Mutex::new(EspNvs::new(nvs, "calib", true)?));
+
+    // get/set the number of steps between the lower and upper limits
+    let stepper_len = || calib.lock().unwrap().get_i32("stepper_calib").ok().flatten().unwrap_or(170);
+    let set_stepper_len = |x| calib.lock().unwrap().set_i32("stepper_calib", x);
 
     // pins are assigned below
     let i2c_bus = mk_i2c_bus(peripherals.i2c0,
@@ -154,11 +152,9 @@ fn main() -> anyhow::Result<()> {
                            peripherals.pins.gpio9,
                            peripherals.pins.gpio10,
                            peripherals.pins.gpio5)?;
-        let hall1 = mk_hall(peripherals.pins.gpio3)?;
-        let hall2 = mk_hall(peripherals.pins.gpio4)?;
-        let hall3 = mk_hall(peripherals.pins.gpio11)?;
-
-        stepper::calibrate(step, hall1, hall2, hall3)?
+        // in a single place I want to define a pair of functions that get and set the stepper
+        // calib. That is, I want the magic string "stepper_calib" to be defined in one spot.
+        stepper::calibrate(step, stepper_len())?
     }));
 
     let ir_shutdown = IrShutdown::new(peripherals.pins.gpio13,
@@ -205,11 +201,6 @@ fn main() -> anyhow::Result<()> {
     // > time >= config.step_times[i]
     // > stepper.set_fraction(config.lock().unwrap().step_fracs[i]) // stepper doesn't move
     let step_index_completed = Arc::new(Mutex::new(0usize));
-
-    // flash storage for compressed sensor data
-    let measured_partition = EspNvsPartition::<NvsCustom>::take("measured")?;
-    let comp = Arc::new(Mutex::new(EspNvs::new(measured_partition, "comp",true)?));
-    let calib = Arc::new(Mutex::new(EspNvs::new(nvs, "calib", true)?));
 
     let calibrated_sensors = Arc::new(Mutex::new([
         CalibratedSensor::new(acs712_raw,

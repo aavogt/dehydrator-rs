@@ -1,4 +1,4 @@
-use esp_idf_hal::{gpio::{OutputPin, PinDriver, AnyOutputPin, self}, delay::FreeRtos};
+use esp_idf_hal::{peripheral::Peripheral, gpio::{InputPin, OutputPin, PinDriver, AnyOutputPin, self}, delay::FreeRtos};
 
 
 trait Step = FnMut(Dir) -> anyhow::Result<()>;
@@ -139,6 +139,14 @@ pub fn calibrate_with_sensor<'d>(step : HalfStep<'d>,
 
 
     Ok(s)
+}
+
+/// for use with calibrate_with_sensor
+/// the closure returns true if the hall sensor GPIO is high
+pub fn mk_hall<'d> (pin : impl Peripheral<P=impl InputPin > + 'd) -> anyhow::Result<Box<impl Fn() -> bool + 'd>> {
+    let hall = PinDriver::input(pin)?;
+    // set pullup / down?
+    Ok(Box::new(move || hall.is_high()))
 }
 
 
